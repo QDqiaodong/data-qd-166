@@ -1,0 +1,59 @@
+{
+  "as_of": "2026-05-01",
+  "items": [
+    {
+      "sku": "P1",
+      "lead_days": 0,
+      "lot_multiple": 1,
+      "on_hand": 0,
+      "components": [
+        {
+          "sku": "S",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "sku": "P2",
+      "lead_days": 0,
+      "lot_multiple": 1,
+      "on_hand": 0,
+      "components": [
+        {
+          "sku": "S",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "sku": "S",
+      "lead_days": 0,
+      "lot_multiple": 5,
+      "on_hand": 2,
+      "components": [],
+      "inventory_lots": [
+        {
+          "lot_id": "S-LOT",
+          "quantity": 2,
+          "available_from": "2026-05-01",
+          "expires_on": "2026-05-31"
+        }
+      ]
+    }
+  ],
+  "demands": [
+    {
+      "id": "D1",
+      "sku": "P1",
+      "date": "2026-05-05",
+      "quantity": 2
+    },
+    {
+      "id": "D2",
+      "sku": "P2",
+      "date": "2026-05-05",
+      "quantity": 2
+    }
+  ],
+  "receipts": []
+}

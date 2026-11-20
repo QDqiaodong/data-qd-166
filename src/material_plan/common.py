@@ -2,7 +2,20 @@
 import json
 import os
 import tempfile
+from datetime import date
 from pathlib import Path
+
+
+def day(value):
+    """Parse a canonical ``YYYY-MM-DD`` date string."""
+    text(value)
+    try:
+        result = date.fromisoformat(value)
+    except ValueError:
+        raise ValueError('ISO date required')
+    if result.isoformat() != value:
+        raise ValueError('ISO date required')
+    return result
 
 
 def fields(obj, names):

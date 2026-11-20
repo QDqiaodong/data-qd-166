@@ -46,6 +46,22 @@ uv pip check --python .venv/bin/python
 
 用同一渲染器可核对产能证据：把所有 `kind="make"` 批次的 `quantity * capacity_per_unit` 按 `(workcenter, release_date)` 汇总，须不超过对应 `capacities` 行（未列出即 0）。集成测试 `tests/test_capacity.py` 覆盖共享产线、共享子件合并、同日到货、用满/超一单位、跨日期拆批、多层受限子件、过去投产以及旧输入与 material-promise 兼容。
 
+## 批次可用窗口净算
+
+在净算之上增加可选的在手库存批次窗口：物料行可声明 `inventory_lots`（每批 `lot_id`、`quantity`、`available_from`、`expires_on`），到货行也可声明同样三个窗口字段而成为一整个批次。声明后该物料按批次净算：只有放行不晚于需求日、且需求日不晚于失效日的批次可用；同日放行当天可用、失效当天可用而次日不可用；过期余量当日作废、不结转；多批次按最早失效优先、`lot_id` 升序消耗（FEFO）。因此已收货但未放行，或在需求日前已失效的数量不会再掩盖缺料。
+
+批次模式下账本每行新增 `expired`（当日作废量）与 `lot_consumption`（当日按批次消耗的 `lot_id`/`quantity` 数组），并满足 `opening + scheduled_receipt + planned_receipt - gross - expired = closing`；仅发生放行或过期的日期也会输出账本行。没有批次窗口字段的旧输入行为完全不变，账本不含新字段。字段、口径与边界详见 [数据契约](docs/contract.md) 的 v4 章节。
+
+可复现验收样例 `fixtures/lots/acceptance.json`：`as_of=2026-01-06`，KIT 于 1/10 交 1 件、lead 2、耗 3 个 BOLT；BOLT 无库存，3 个于 1/6 到货但 1/7 失效。KIT 在 1/8 投产，此时该批 BOLT 已过期，故计划于 1/8 补 3 个 BOLT，并把旧到货的 3 个记为作废。
+
+```sh
+.venv/bin/material-plan --source fixtures/lots/acceptance.json --output run/lots.json
+# 另加 1/7 独立 BOLT 需求 2 个：该批次先覆盖 2 个，余 1 个在 1/8 作废
+.venv/bin/material-plan --source fixtures/lots/acceptance_partial_use.json --output run/lots_partial.json
+```
+
+在 `run/lots.json` 中可见 BOLT 在 1/8 的 `expired=3`、`planned_receipt=3`；`run/lots_partial.json` 中 1/7 的 `lot_consumption` 为 `L-OLD×2`，1/8 的 `expired=1`。`fixtures/lots/window_boundaries.json` 覆盖放行/失效边界，`fixtures/lots/fefo_cross_date.json` 覆盖 FEFO 与跨日期余额，`fixtures/lots/shared_component.json` 覆盖共享子件合并。集成测试 `tests/test_lots.py` 覆盖既有净算兼容、放行/失效边界、FEFO 消耗、跨日期余额、组件释放日与失败输入。
+
 ## 客户订单承诺簿（material-promise）
 
 在同一净算引擎上新增可跨进程恢复的客户订单承诺簿：预约/撤销以批次为单位提交，每个操作后的全部 active 订单都作为同一次净算的 demands；任一补单释放日早于 as_of 即整批拒绝。数据只存本地 SQLite（标准库 `sqlite3`），无服务、无外部依赖；业务口径与字段详见 [数据契约](docs/contract.md) 的 v2 章节。

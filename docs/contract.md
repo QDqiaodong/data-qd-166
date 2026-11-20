@@ -68,3 +68,47 @@ A shortage whose nominal release is **earlier than `as_of`** keeps the v1 `past_
 Synthetic fixture `fixtures/capacity/acceptance.json`: `as_of=2026-01-06`, KIT demand 4 on 2026-01-10, `lead_days=2`, `lot_multiple=1`, `on_hand=0`, each KIT consumes 2 BOLT, KIT on `line-a` with `capacity_per_unit=1`; `line-a` capacity is 2 on Jan 6, 2 on Jan 7 and 0 on Jan 8. BOLT is purchased, `on_hand=8`, no receipts. A feasible report releases 2 KIT on Jan 6 (receipt Jan 8) and 2 KIT on Jan 7 (receipt Jan 9); each batch explodes 4 BOLT on its own release day, so all 8 BOLT demands are covered by real stock and no BOLT demand falls on Jan 8. Setting all three `line-a` days to 0 makes the plan infeasible: `plan` raises and the CLI exits 2 without overwriting an existing report. Additional fixtures cover a shared workcenter across two skus, shared-component merging on the actual release date, same-day receipts, exact-vs-over capacity, cross-date lot splitting, past-due releases, multi-level constrained children, and legacy inputs.
 
 
+
+# 批次可用窗口净算 v4
+
+v1–v3 的净算口径不变；当物料明确声明批次身份与可用窗口时，实体库存按批次净算，使已收货但未放行、或在需求日前已失效的数量不再掩盖缺料。声明新字段的输入进入“批次模式”，没有批次窗口字段的既有输入在 `plan(data)`、`material-plan` 命令与输出上逐字保持原行为。
+
+## 新增可选字段
+
+- 物料行可选 `inventory_lots`：声明该 sku 的在手实物库存批次。若出现，其为数组（沿用 10000 条上限），每个批次行字段**恰为** `lot_id`、`quantity`、`available_from`、`expires_on`。`quantity` 为正整数；日期为规范 `YYYY-MM-DD`；`expires_on` 不得早于 `available_from`。声明时各批次 `quantity` 之和必须**恰等于**该物料 `on_hand`。`inventory_lots: []` 仅在 `on_hand=0` 时合法，并仍将该 sku 标记为批次模式。
+- 到货行（顶层 `receipts`）可选地**同时**声明 `lot_id`、`available_from`、`expires_on`；三者要么全部出现，要么全部不出现。声明时该到货是一个**完整批次**，不可拆分；`available_from` 不得早于该到货的 `date`，`expires_on` 不得早于 `available_from`。
+- `lot_id` 沿用在手标识文本规则（非空、去空白、≤200 字符、无控制字符），并在**整份输入内唯一**——库存批次与到货批次共用同一命名空间，重复即拒绝。
+- 未知或缺失字段在任何层级都拒绝。所有旧字段与容量字段的校验保持不变。
+
+## 批次模式的判定与净算
+
+某 sku 只要声明了 `inventory_lots`（即使为空数组）**或**存在带窗口的到货，就进入批次模式；否则沿用 v1 的无限期可用净算，账本字段与排序完全不变。批次模式下：
+
+- 只有 `available_from` **不晚于** D 且 `expires_on` **不早于** D 的批次数量，在日期 D 的需求净算中可用。放行当天可消费，失效当天（`expires_on`）当天可消费，次日不可消费。
+- 批次数量在 `available_from` 记入可用库存（在账本上体现为 `scheduled_receipt` 放行事件）；在首个计划日或之前已放行的在手批次直接计入 opening。未放行数量不得覆盖更早日期的需求。
+- 仍可用的多批次按 `expires_on` 最早优先、再按 `lot_id` 升序消耗（FEFO）。同一批次跨多个需求日只消耗其剩余量，不重复消耗。
+- 过期后剩余数量作废，不结转到以后日期；作废记在 `expires_on` 的次日（若早于首个计划日，则记在首个计划日）。
+- 未声明批次窗口的旧库存和到货（以及本 sku 自身的计划补单）保持无限期可用语义，在 FEFO 批次之后覆盖需求。
+
+净算金额、`lot_multiple` 上取整、BOM 父子释放日与容量排程口径均沿用既有计划口径。计划生成的 make/buy 建议仍是建议，不回灌为下一次输入的实物库存。
+
+## 批次模式账本
+
+批次模式下每行账本除 v1 字段外新增：
+
+- `expired`：当日按批次作废的整数数量；
+- `lot_consumption`：当日按批次消耗的数组，每项**恰为** `lot_id` 与 `quantity`（该批次当日被消耗的数量）。
+
+并满足守恒：
+
+```
+opening + scheduled_receipt + planned_receipt - gross - expired = closing
+```
+
+为展示仅发生放行或过期事件的日期（当日无毛需求、无补单），也须为该 sku 输出相应账本行。账本排序仍为 `(sku, date)`。没有进入批次模式的 sku，其账本行不含任何新字段。
+
+## 验收与边界
+
+合成样例 `fixtures/lots/acceptance.json`：`as_of=2026-01-06`，KIT 于 2026-01-10 需求 1 件、`lead_days=2`、每件耗 3 个 BOLT；BOLT 无库存，另有 3 个 BOLT 于 2026-01-06 到货但 `expires_on=2026-01-07`。KIT 于 2026-01-08 投产，故这批 BOLT 在实际子件需求日已过期；因此计划在 1 月 8 日为 BOLT 补 3 个，并把这批旧到货的 3 个在 1 月 8 日记为过期作废。若在同一输入另加 1 月 7 日独立 BOLT 需求 2 个（`fixtures/lots/acceptance_partial_use.json`），该批次先覆盖 2 个，剩余 1 个在 1 月 8 日记为过期作废。
+
+`fixtures/lots/window_boundaries.json` 覆盖未放行不可消费、放行当天可消费、失效当天可消费而次日不可消费；`fixtures/lots/fefo_cross_date.json` 覆盖 FEFO 与跨日期余额；`fixtures/lots/shared_component.json` 覆盖多父项同日子件需求先合并。集成与单元测试见 `tests/test_lots.py`。

@@ -1,0 +1,53 @@
+{
+  "as_of": "2026-04-01",
+  "items": [
+    {
+      "sku": "PART",
+      "lead_days": 0,
+      "lot_multiple": 1,
+      "on_hand": 14,
+      "components": [],
+      "inventory_lots": [
+        {
+          "lot_id": "L-C",
+          "quantity": 5,
+          "available_from": "2026-04-01",
+          "expires_on": "2026-04-20"
+        },
+        {
+          "lot_id": "L-B",
+          "quantity": 5,
+          "available_from": "2026-04-01",
+          "expires_on": "2026-04-10"
+        },
+        {
+          "lot_id": "L-A",
+          "quantity": 4,
+          "available_from": "2026-04-01",
+          "expires_on": "2026-04-10"
+        }
+      ]
+    }
+  ],
+  "demands": [
+    {
+      "id": "D1",
+      "sku": "PART",
+      "date": "2026-04-03",
+      "quantity": 6
+    },
+    {
+      "id": "D2",
+      "sku": "PART",
+      "date": "2026-04-08",
+      "quantity": 5
+    },
+    {
+      "id": "D3",
+      "sku": "PART",
+      "date": "2026-04-15",
+      "quantity": 4
+    }
+  ],
+  "receipts": []
+}

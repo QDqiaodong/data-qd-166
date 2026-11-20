@@ -1,0 +1,43 @@
+{
+  "as_of": "2026-01-06",
+  "items": [
+    {
+      "sku": "KIT",
+      "lead_days": 2,
+      "lot_multiple": 1,
+      "on_hand": 0,
+      "components": [
+        {
+          "sku": "BOLT",
+          "quantity": 3
+        }
+      ]
+    },
+    {
+      "sku": "BOLT",
+      "lead_days": 0,
+      "lot_multiple": 1,
+      "on_hand": 0,
+      "components": []
+    }
+  ],
+  "demands": [
+    {
+      "id": "D1",
+      "sku": "KIT",
+      "date": "2026-01-10",
+      "quantity": 1
+    }
+  ],
+  "receipts": [
+    {
+      "id": "RB",
+      "sku": "BOLT",
+      "date": "2026-01-06",
+      "quantity": 3,
+      "lot_id": "L-OLD",
+      "available_from": "2026-01-06",
+      "expires_on": "2026-01-07"
+    }
+  ]
+}
