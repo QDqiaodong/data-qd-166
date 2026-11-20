@@ -1,0 +1,52 @@
+{
+  "as_of": "2026-01-01",
+  "items": [
+    {
+      "sku": "KIT",
+      "lead_days": 3,
+      "lot_multiple": 2,
+      "on_hand": 0,
+      "workcenter": "line-a",
+      "capacity_per_unit": 1,
+      "components": [
+        {
+          "sku": "RAW",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "sku": "RAW",
+      "lead_days": 0,
+      "lot_multiple": 1,
+      "on_hand": 1000,
+      "components": []
+    }
+  ],
+  "demands": [
+    {
+      "id": "D1",
+      "sku": "KIT",
+      "date": "2026-01-06",
+      "quantity": 6
+    }
+  ],
+  "receipts": [],
+  "capacities": [
+    {
+      "workcenter": "line-a",
+      "date": "2026-01-01",
+      "capacity": 2
+    },
+    {
+      "workcenter": "line-a",
+      "date": "2026-01-02",
+      "capacity": 2
+    },
+    {
+      "workcenter": "line-a",
+      "date": "2026-01-03",
+      "capacity": 2
+    }
+  ]
+}

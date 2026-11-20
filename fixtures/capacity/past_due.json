@@ -1,0 +1,36 @@
+{
+  "as_of": "2026-01-05",
+  "items": [
+    {
+      "sku": "KIT",
+      "lead_days": 10,
+      "lot_multiple": 1,
+      "on_hand": 0,
+      "workcenter": "line-a",
+      "capacity_per_unit": 1,
+      "components": [
+        {
+          "sku": "BOLT",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "sku": "BOLT",
+      "lead_days": 0,
+      "lot_multiple": 1,
+      "on_hand": 100,
+      "components": []
+    }
+  ],
+  "demands": [
+    {
+      "id": "D1",
+      "sku": "KIT",
+      "date": "2026-01-10",
+      "quantity": 1
+    }
+  ],
+  "receipts": [],
+  "capacities": []
+}

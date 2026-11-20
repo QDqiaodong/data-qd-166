@@ -30,6 +30,22 @@ uv pip check --python .venv/bin/python
 
 单操作者本地批处理；不承诺并发发布或断电恢复。代码/样例采用MIT许可。
 
+## 有限产能制造排程
+
+在净算之上增加可选的每日产线容量：制造物料可声明 `workcenter` 与 `capacity_per_unit`，顶层 `capacities` 给出各产线每日可用产能。净算仍先决定每个需求桶的短缺量并按 `lot_multiple` 取整；排程随后把该制造量拆成一个或多个批次，在 `[as_of, 需求日-lead_days]` 窗口内占用共享产线产能，每批完工日不晚于需求日，且每批数量仍是 `lot_multiple` 的正整数倍、各批之和恰好等于计划量。只有新制造批次按其**实际投产日**产生子件需求，因此子件净算会随批次日期自动前移；库存与既有到货既不占产能也不爆子件，采购建议不占制造产能。
+
+没有新字段的旧输入行为完全不变。产能不足时整份计划拒绝：`plan` 抛 `ValueError`，CLI 退出 2、stderr 报错、stdout 为空并保留旧报告文件。字段、计算口径与边界详见 [数据契约](docs/contract.md) 的 v3 章节。
+
+可复现验收样例 `fixtures/capacity/acceptance.json`：KIT 于 2026-01-10 交 4 件、lead 2、每件占 1 单位 `line-a` 产能并耗 2 个 BOLT；`line-a` 在 1/6、1/7 各 2 单位、1/8 为 0，BOLT 现货 8。结果拆为 1/6 投产 2 件、1/7 投产 2 件，BOLT 需求随投产日落在 1/6 与 1/7，全部由现货覆盖。
+
+```sh
+.venv/bin/material-plan --source fixtures/capacity/acceptance.json --output run/capacity.json
+# 产线全为 0 时：拒绝且不覆盖 run/capacity.json
+.venv/bin/material-plan --source fixtures/capacity/acceptance_infeasible.json --output run/capacity.json
+```
+
+用同一渲染器可核对产能证据：把所有 `kind="make"` 批次的 `quantity * capacity_per_unit` 按 `(workcenter, release_date)` 汇总，须不超过对应 `capacities` 行（未列出即 0）。集成测试 `tests/test_capacity.py` 覆盖共享产线、共享子件合并、同日到货、用满/超一单位、跨日期拆批、多层受限子件、过去投产以及旧输入与 material-promise 兼容。
+
 ## 客户订单承诺簿（material-promise）
 
 在同一净算引擎上新增可跨进程恢复的客户订单承诺簿：预约/撤销以批次为单位提交，每个操作后的全部 active 订单都作为同一次净算的 demands；任一补单释放日早于 as_of 即整批拒绝。数据只存本地 SQLite（标准库 `sqlite3`），无服务、无外部依赖；业务口径与字段详见 [数据契约](docs/contract.md) 的 v2 章节。
