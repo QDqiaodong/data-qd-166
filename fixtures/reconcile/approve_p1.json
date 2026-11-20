@@ -1,0 +1,7 @@
+{
+  "approval_id": "AP-P1",
+  "expected_version": 1,
+  "lines": [
+    {"line_id": "P1", "quantity": 3}
+  ]
+}

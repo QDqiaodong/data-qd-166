@@ -181,3 +181,49 @@ $MC close --db "$DB" --source fixtures/cost/close_2026_03.json; echo "rc=$?"
 首期可选择任意有效 `YYYY-MM`，以后只能逐月连续关账。每份 close 输入为 `period`、`physical`（material-trace snapshot 的完整当期累计快照）、`cost_updates`（`{lot_id, total_cents, source_ref}`，指向收货批次的整笔采购成本新总额）；首次出现的收货批次当期必须有成本（允许明确为 0），旧批次未更新就沿用前次总额，已用尽批次仍可改价。实物快照整份核对（版本不倒退、旧事实不消失不改写、谱系无环、分配与发货一致、每批数量守恒）通过后才能参与关账；质量状态不参与估值与历史比较。每期账单满足“期初 + 采购净增 - 销售成本净额 = 期末”。
 
 安装后可直接用 `.venv/bin/material-cost`（把 `MC` 换成它即可）。Python 接口为 `material_plan.costing.init_db / close_period / show_period`，失败抛 `ValueError` 且整期回滚、不修改调用方对象。集成测试 `tests/test_costing.py` 覆盖三个月验收、历史分摊顺序（先发 Z 隔月再发字典序更早的 A）、多来源与多层耗尽批次、零金额分配、实物历史改写与整期回滚、期间连续性、跨进程恢复与 CLI。
+
+## 采购到货核销（material-reconcile）
+
+仓库的 material-trace 实物账记下了真实收到的批次，但没有采购单行信息；同一供应商的两张采购单可能同时到货，送货单只写料号。本模块另建一份独立的本地 SQLite 核销库：按收货与验收证据核对哪些采购行可能已履约，并为财务记录每行已授权放行的合格品数量。证据不能唯一区分采购单时，绝不替调用方挑一个匹配就放款，也不会把已放行的量在下次导入时悄悄归到另一行。完整口径见 [数据契约](docs/contract.md) 的 v7 章节。
+
+```sh
+export PYTHONPATH=src
+MR="python3 -m material_plan.reconcile_cli"
+DB=run/reconcile.db
+mkdir -p run
+
+# 1) 初始化采购单（路径已存在即拒绝，包括空文件）
+#    P1 收货窗 1/1–1/5、P2 窗 1/3–1/8，同供应商同 SKU 各订 5 件
+$MR init --db "$DB" --source fixtures/reconcile/orders.json
+
+# 2) 提交完整证据：F 于 1/2 收 3 全合格、A 于 1/4 收 4 其中 2 合格、B 于 1/6 收 3 无合格品
+#    F 只能入 P1、B 只能入 P2、A 必须各分 2 件：
+#    两行收货范围均 [5,5]，P1 合格 [3,5]、P2 [0,2]，版本 0 -> 1
+$MR reconcile --db "$DB" --source fixtures/reconcile/evidence_initial.json
+
+# 3) 同一申请为 P1 放 3 且为 P2 放 1：P2 合格下限为 0，整批失败，退出 2
+$MR approve --db "$DB" --source fixtures/reconcile/approve_overreach.json; echo "rc=$?"
+
+# 4) P1 单独放行 3：版本 1 -> 2，输出本次凭证
+$MR approve --db "$DB" --source fixtures/reconcile/approve_p1.json
+
+# 5) 新证据认领 A 的 2 件合格品到 P2：P2 合格变为 [2,2]，版本 2 -> 3
+$MR reconcile --db "$DB" --source fixtures/reconcile/evidence_claimed.json
+
+# 6) P2 放行这 2 件：版本 3 -> 4
+$MR approve --db "$DB" --source fixtures/reconcile/approve_p2.json
+
+# 7) 去掉该认领：完整分配仍存在，但 P2 合格下限 0 < 已放行 2，
+#    整份更正失败，旧证据与旧凭证保留
+$MR reconcile --db "$DB" --source fixtures/reconcile/evidence_unclaimed.json; echo "rc=$?"
+
+# 8) 旧凭证无论当前版本如何都按原申请重放，不重复放行、不加版本
+$MR approve --db "$DB" --source fixtures/reconcile/approve_p2.json
+$MR show --db "$DB"
+```
+
+安装后可直接用 `.venv/bin/material-reconcile`（把 `MR` 换成它即可）。Python 接口为 `material_plan.reconcile.init_db / reconcile / approve / show`，`db` 接受 `str` 或 `Path`，失败抛 `ValueError` 且不修改调用方对象。`init`、`reconcile`、`show` 返回当前版本、逐采购行核对结果（收货/合格收货上下限、累计已放行、本次可放行）与已入库凭证；`approve` 只返回本次凭证。集成测试 `tests/test_reconcile.py` 覆盖验收全流程、部分认领不排除余量、多批汇总才暴露的容量冲突、同日边界、供应商/SKU 不匹配、清零批次按原收货量、制造批或改写批不可冒充收货、单批大数量、证据更正与放行保证、凭证重放与冲突、整份回滚、跨进程恢复与 CLI，并以固定种子随机实例对拍暴力枚举验证上下界口径。集成测试：
+
+```sh
+PYTHONPATH=src python3 -m unittest discover -s tests -v
+```

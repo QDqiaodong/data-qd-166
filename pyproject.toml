@@ -12,5 +12,6 @@ material-plan = "material_plan.cli:main"
 material-promise = "material_plan.promise_cli:main"
 material-trace = "material_plan.traceability_cli:main"
 material-cost = "material_plan.costing_cli:main"
+material-reconcile = "material_plan.reconcile_cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]

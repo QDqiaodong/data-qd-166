@@ -1,0 +1,43 @@
+{
+  "expected_version": 2,
+  "physical": {
+    "version": 1,
+    "lots": [
+      {
+        "lot_id": "F",
+        "sku": "M",
+        "produced_quantity": 3,
+        "remaining_quantity": 3,
+        "inputs": [],
+        "blocked_by": []
+      },
+      {
+        "lot_id": "A",
+        "sku": "M",
+        "produced_quantity": 4,
+        "remaining_quantity": 4,
+        "inputs": [],
+        "blocked_by": []
+      },
+      {
+        "lot_id": "B",
+        "sku": "M",
+        "produced_quantity": 3,
+        "remaining_quantity": 3,
+        "inputs": [],
+        "blocked_by": []
+      }
+    ],
+    "shipments": [],
+    "recalls": [],
+    "exposures": []
+  },
+  "arrivals": [
+    {"lot_id": "F", "supplier": "S", "received_on": "2026-01-02", "accepted_quantity": 3},
+    {"lot_id": "A", "supplier": "S", "received_on": "2026-01-04", "accepted_quantity": 2},
+    {"lot_id": "B", "supplier": "S", "received_on": "2026-01-06", "accepted_quantity": 0}
+  ],
+  "bindings": [
+    {"lot_id": "A", "line_id": "P2", "portion": "accepted", "quantity": 2}
+  ]
+}

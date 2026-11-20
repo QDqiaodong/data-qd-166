@@ -232,3 +232,45 @@ opening + scheduled_receipt + planned_receipt - gross - expired = closing
 - 2026-03（`close_2026_03.json`）：R 更正为 97 分，同时 R 余料发至 A、S 余料发至 O2。当期 A/O2 销售成本 33/32，O1 只补 -2，销售成本净额 63，期末 0；首月与次月账单保持原值。
 
 集成测试 `tests/test_costing.py` 另覆盖：同一批次先发 Z、隔月再发字典序更早的 A 验证历史分摊顺序（A 不得挤到 Z 前面）；同月先领料后发货、同月领料按领入批次升序；多来源汇合后按完工批自身产量分摊；多层中间耗尽批次的价值传导与已耗尽收货批次改价；零金额分配仍列 `sale`；旧物理记录被改写/消失、版本倒退、同版本事实不同、坏批次引用或非法成本更新导致的整期回滚；期间连续性；跨进程恢复与 CLI 行为。
+
+# 采购到货核销 v7（material-reconcile）
+
+仓库的 material-trace 实物账记下了真实收到的批次，但没有采购单行信息；同一供应商的两张采购单可能同时到货，送货单只写料号。本版新增独立的离线核销工具：按收货与验收证据核对哪些采购行可能已履约，并为财务记录每行已授权放行（核销）的合格品数量。证据不能唯一区分采购单时，工具绝不替调用方挑选一个匹配就放款，也不会把已放行的量在下次导入时悄悄归到另一行。既有 `material-plan`、`material-promise`、`material-trace`、`material-cost` 的输入、输出与数据库行为完全不变；核销库是另一份本地 SQLite 文件，不调用外部财务系统或网络，“放行”只在此库记录授权数量。
+
+## Python 接口与 CLI
+
+`material_plan.reconcile` 提供 `init_db(db, orders)`、`reconcile(db, evidence)`、`approve(db, approval)`、`show(db)`；`db` 接受 `str` 或 `pathlib.Path`。失败一律抛 `ValueError` 且不修改调用方传入对象。CLI 为 `material-reconcile init --db FILE --source ORDERS.json`、`material-reconcile reconcile --db FILE --source EVIDENCE.json`、`material-reconcile approve --db FILE --source APPROVAL.json`、`material-reconcile show --db FILE`：成功退出 0 且 stdout 只输出一份 JSON 加一个换行；业务或输入错误退出 2、stdout 为空、stderr 给出可定位的原因。存储为单个本地 SQLite 文件，单操作者、仅标准库；重开进程后可恢复证据、放行凭证与报告；任一失败不得留下部分提交。
+
+`init` 只创建此前不存在的路径——已有路径（包括空文件或符号链接）一律拒绝；初始化失败不留下可用的半成品。`reconcile`/`approve`/`show` 只打开已初始化的核销库，绝不隐式建库，也不接受其他模块的数据库文件。CLI 沿用 8MB、重复 JSON 键及非有限数拒绝规则；新命令对象在每一层都拒绝未知或缺失字段。
+
+## 采购单初始化
+
+`init` 输入字段**恰为** `orders`（至多 10000 行），每行字段**恰为** `line_id`、`supplier`、`sku`、`earliest`、`latest`、`ordered_quantity`。`line_id` 全库唯一；`earliest`/`latest` 为规范 `YYYY-MM-DD` 且均含当天，`latest` 不得早于 `earliest`；`ordered_quantity` 为 1 至 10^9 的非布尔整数；标识符沿用 v1 文本规则。同一供应商、SKU 下允许有多行，区间可以重叠。采购行数量上限与收货窗口初始化后固定，版本从 0 开始，此时无任何证据与凭证。
+
+## 证据：实物快照、到货与认领
+
+`reconcile` 输入字段**恰为** `expected_version`、`physical`、`arrivals`、`bindings`，提交一份完整的新证据（不是增量）。
+
+- `physical`：同一本 material-trace 实物账的累计快照，字段**恰为** `version`、`lots`、`shipments`、`recalls`、`exposures`。本工具只取其中的 `lots`：核验 `lot_id` 唯一；纳入核销的批次必须为 `inputs=[]` 的外部收货，以其**原产出数量**（`produced_quantity`）与 SKU 为准——批次余额清零（已领用或发货）不影响核对。不以当前库存余额、领料出库、召回或成本计量作为收货依据；不校验实物批次的制造谱系或财务账内容。快照允许包含本次采购范围外的其他批次（制造批、其他 SKU 等），它们不参与核销。
+- `arrivals`（至多 10000 行）每行字段**恰为** `lot_id`、`supplier`、`received_on`、`accepted_quantity`；同一批次最多一行。`lot_id` 必须出现在 `physical.lots` 且为外部收货批；`received_on` 为规范日期；`accepted_quantity` 为 0 到该批收货量的非布尔整数——余下数量属于尚不能放行的部分，但仍占用采购行的收货额度。曾纳入的收货批次必须继续提交，原 SKU 和原收货量不能改（改写即拒绝）；供应商、实际收货日、验收数量及认领证据可以更正。
+- `bindings`（至多 10000 行）是仓库根据送货单补录的认领明细，每行字段**恰为** `lot_id`、`line_id`、`portion`、`quantity`；`portion` 为 `accepted` 或 `other`；同一三元组最多一行；`quantity` 为正的非布尔整数。认领表示该部分**至少**有这么多件属于此行——没认领的余量仍可分配到该行或其他符合条件的行。认领同样受供应商、SKU、收货日期范围及数量约束：不得跨供应商、跨 SKU，不得落在收货窗口之外，也不得因曾有认领便绕开窗口；同一批次同一部分的认领合计不得超过该批该类数量。
+
+## 核对口径
+
+把每个纳入批次的**两类**数量（合格 `accepted`、其余 `other`）全部分给条件匹配（供应商、SKU 相同且收货日落在窗口内）的采购行、数量可拆分、每行两类合计不超过其 `ordered_quantity`、且满足全部认领下界的分配，称为一份完整合法分配。有些采购行可以尚未收齐；找不到任何完整分配的证据视为冲突，整份不入库。数量按区段（供应节点×采购行的运输问题）精确求解，不按单件展开。
+
+成功报告对每个采购行分别给出：总收货量的可能下限 `received_min` 与上限 `received_max`，合格收货量的可能下限 `accepted_min` 与上限 `accepted_max`，累计已放行量 `released`，以及本次还可放行量 `releasable`（合格下限减去累计已放行量）。每个上下限都按**同一份证据下所有完整合法分配**取精确最优；这些端点不一定可以同时达到。不得当成逐行独立统计，不得只检查单批数量，不得把一次任意匹配的结果或可能上限当成保证值。
+
+## 放行与凭证
+
+`approve` 输入字段**恰为** `approval_id`、`expected_version`、`lines`；`lines` 非空（至多 10000 行），每行字段**恰为** `line_id`、`quantity`，一行最多一次，只允许正数。使用当前证据，同批每行的新放行量须不超过其 `releasable`，否则整批失败、不占 `approval_id`。放行不更改采购或收货归属，也不缩小核对所用的分配集合；重导证据时先在不带历史放行约束的分配集合中重核每个合格下限，如果任一行下限低于其累计已放行量，整份更正失败并保留旧证据及旧凭证——调用方需核对后提交新的证据；本工具不支持撤销财务批准。
+
+成功的 `reconcile` 或首次 `approve` 将版本加 1；新写请求须给出提交前的当前版本（`expected_version`）。`approve` 成功后永久保留 `approval_id`、请求版本、行及数量、实际提交版本；相同 `approval_id` 和同一语义请求（对象键序与批准行顺序无关）重放始终返回原凭证，即使当前版本已改变，且不重复放行或加版本；同 ID 异内容报错，失败不占 ID。
+
+`approve` 只返回该凭证，字段**恰为** `approval_id`、`expected_version`（请求版本）、`committed_version`（实际提交版本）、`lines`（按 `line_id` 升序）。`init`、`reconcile` 与 `show` 返回字段**恰为** `version`、`lines`、`approvals` 的报告：`lines` 按 `line_id` 升序，每行恰为 `line_id`、`received_min`、`received_max`、`accepted_min`、`accepted_max`、`released`、`releasable`；`approvals` 按 `approval_id` 升序列出全部已入库凭证。同一提交状态永远序列化为相同 JSON。
+
+## 可复现验收场景
+
+`fixtures/reconcile/`：同一供应商 S 同一 SKU M 的两行——P1 收货窗 1 月 1–5 日、P2 为 1 月 3–8 日，各订 5 件。F 在 1 月 2 日收 3 件且全合格；A 在 1 月 4 日收 4 件，其中 2 件合格；B 在 1 月 6 日收 3 件且无合格品。没有认领时，F 只能入 P1、B 只能入 P2，A 必须各分 2 件：两行收货范围均为 [5,5]，P1 合格范围 [3,5]，P2 为 [0,2]。P1 可以先放行 3 件；若同一申请还要为 P2 放行 1 件，则整批失败。新证据认领 A 的 2 件合格品到 P2 后，P2 合格范围变为 [2,2]，可以放行这 2 件。P2 放行后，去掉该认领虽然仍存在完整分配，但 P2 合格下限降为 0、低于已放行 2，须拒绝更正并保留旧证据与旧凭证；旧凭证无论当前版本如何都能按原申请重放。
+
+集成测试 `tests/test_reconcile.py` 另覆盖：部分认领不排除同一行接收余量；多批汇总才暴露的容量冲突；同日边界与供应商/SKU 不匹配；清零批次按原收货量核对；制造批次或改写旧批次不可冒充收货；单批大数量不按单件展开；证据更正（供应商/日期/验收数量）与放行保证；凭证重放、冲突与版本；整份回滚；跨进程恢复与 CLI；并以固定种子随机小实例对拍暴力枚举，验证逐行端点确为全部完整合法分配上的精确上下界。

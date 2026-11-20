@@ -1,0 +1,20 @@
+{
+  "orders": [
+    {
+      "line_id": "P1",
+      "supplier": "S",
+      "sku": "M",
+      "earliest": "2026-01-01",
+      "latest": "2026-01-05",
+      "ordered_quantity": 5
+    },
+    {
+      "line_id": "P2",
+      "supplier": "S",
+      "sku": "M",
+      "earliest": "2026-01-03",
+      "latest": "2026-01-08",
+      "ordered_quantity": 5
+    }
+  ]
+}
