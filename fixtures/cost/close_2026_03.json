@@ -1,0 +1,76 @@
+{
+  "period": "2026-03",
+  "physical": {
+    "version": 2,
+    "lots": [
+      {
+        "lot_id": "R",
+        "sku": "RAW",
+        "produced_quantity": 3,
+        "remaining_quantity": 0,
+        "inputs": [],
+        "blocked_by": []
+      },
+      {
+        "lot_id": "S",
+        "sku": "SUB",
+        "produced_quantity": 2,
+        "remaining_quantity": 0,
+        "inputs": [
+          {
+            "lot_id": "R",
+            "quantity": 2
+          }
+        ],
+        "blocked_by": []
+      }
+    ],
+    "shipments": [
+      {
+        "shipment_id": "O1",
+        "customer_id": "C1",
+        "sku": "SUB",
+        "quantity": 1,
+        "allocations": [
+          {
+            "lot_id": "S",
+            "quantity": 1
+          }
+        ]
+      },
+      {
+        "shipment_id": "A",
+        "customer_id": "C2",
+        "sku": "RAW",
+        "quantity": 1,
+        "allocations": [
+          {
+            "lot_id": "R",
+            "quantity": 1
+          }
+        ]
+      },
+      {
+        "shipment_id": "O2",
+        "customer_id": "C1",
+        "sku": "SUB",
+        "quantity": 1,
+        "allocations": [
+          {
+            "lot_id": "S",
+            "quantity": 1
+          }
+        ]
+      }
+    ],
+    "recalls": [],
+    "exposures": []
+  },
+  "cost_updates": [
+    {
+      "lot_id": "R",
+      "total_cents": 97,
+      "source_ref": "INV-R-3"
+    }
+  ]
+}

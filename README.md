@@ -146,3 +146,38 @@ $MT apply --db "$DB" --source fixtures/trace/request_physical_build.json
 ```sh
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
+
+## 离线材料成本月末关账（material-cost）
+
+工厂用 material-trace 记录实际收货、完工领料与发货；本模块另建一份独立的本地 SQLite 成本账簿，财务月末把采购成本沿**实际领料**分配到成品与已发货明细，交付可对账的期末库存估值与销售成本。发票晚到或更正时旧账单保持原样：已发走部分只在当前月入账差额（`adjustment`，可为负），仍在库部分按最新成本更新期末价值。只核算材料成本，不另计工费；绝不从净算建议或承诺簿构造实物。完整口径见 [数据契约](docs/contract.md) 的 v6 章节。
+
+```sh
+export PYTHONPATH=src
+MC="python3 -m material_plan.costing_cli"
+DB=run/cost.db
+mkdir -p run
+
+# 1) 初始化独立成本账簿（路径已存在即拒绝，包括空文件）
+$MC init --db "$DB"
+
+# 2) 首月：R 收货 3 件成本 100 分，领 2 件完工 S，向 O1 发 1 件
+#    期末 R/S 各剩 1 件、价值 34/33，O1 销售成本 33，期末合计 67
+$MC close --db "$DB" --source fixtures/cost/close_2026_01.json
+
+# 3) 次月实物不变，R 更正为 104：期初 67、采购净增 4、O1 调整 +1、期末 70
+$MC close --db "$DB" --source fixtures/cost/close_2026_02.json
+
+# 4) 第三月 R 更正为 97，余料分别发至 A 与 O2：
+#    A/O2 销售成本 33/32，O1 只补 -2，本期净额 63，期末 0
+$MC close --db "$DB" --source fixtures/cost/close_2026_03.json
+
+# 5) 已冻结账单保持原值；输出丢失可用 show 取回（与首次关账输出一致）
+$MC show --db "$DB" --period 2026-01
+
+# 6) 重复关账或跳月：退出 2、stdout 为空、账簿无部分变化
+$MC close --db "$DB" --source fixtures/cost/close_2026_03.json; echo "rc=$?"
+```
+
+首期可选择任意有效 `YYYY-MM`，以后只能逐月连续关账。每份 close 输入为 `period`、`physical`（material-trace snapshot 的完整当期累计快照）、`cost_updates`（`{lot_id, total_cents, source_ref}`，指向收货批次的整笔采购成本新总额）；首次出现的收货批次当期必须有成本（允许明确为 0），旧批次未更新就沿用前次总额，已用尽批次仍可改价。实物快照整份核对（版本不倒退、旧事实不消失不改写、谱系无环、分配与发货一致、每批数量守恒）通过后才能参与关账；质量状态不参与估值与历史比较。每期账单满足“期初 + 采购净增 - 销售成本净额 = 期末”。
+
+安装后可直接用 `.venv/bin/material-cost`（把 `MC` 换成它即可）。Python 接口为 `material_plan.costing.init_db / close_period / show_period`，失败抛 `ValueError` 且整期回滚、不修改调用方对象。集成测试 `tests/test_costing.py` 覆盖三个月验收、历史分摊顺序（先发 Z 隔月再发字典序更早的 A）、多来源与多层耗尽批次、零金额分配、实物历史改写与整期回滚、期间连续性、跨进程恢复与 CLI。
