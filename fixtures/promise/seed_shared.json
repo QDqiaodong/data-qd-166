@@ -1,0 +1,56 @@
+{
+  "as_of": "2026-02-01",
+  "items": [
+    {
+      "sku": "P1",
+      "lead_days": 0,
+      "lot_multiple": 4,
+      "on_hand": 0,
+      "components": [
+        {
+          "sku": "SHARED",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "sku": "P2",
+      "lead_days": 0,
+      "lot_multiple": 1,
+      "on_hand": 0,
+      "components": [
+        {
+          "sku": "SHARED",
+          "quantity": 2
+        }
+      ]
+    },
+    {
+      "sku": "SHARED",
+      "lead_days": 1,
+      "lot_multiple": 5,
+      "on_hand": 1,
+      "components": [
+        {
+          "sku": "RAW",
+          "quantity": 2
+        }
+      ]
+    },
+    {
+      "sku": "RAW",
+      "lead_days": 0,
+      "lot_multiple": 1,
+      "on_hand": 0,
+      "components": []
+    }
+  ],
+  "receipts": [
+    {
+      "id": "R-SHARED-D2",
+      "sku": "SHARED",
+      "date": "2026-02-02",
+      "quantity": 3
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "as_of": "2026-01-08",
+  "items": [
+    {
+      "sku": "KIT",
+      "lead_days": 0,
+      "lot_multiple": 1,
+      "on_hand": 0,
+      "components": [
+        {
+          "sku": "BOLT",
+          "quantity": 3
+        }
+      ]
+    },
+    {
+      "sku": "BOLT",
+      "lead_days": 1,
+      "lot_multiple": 1,
+      "on_hand": 3,
+      "components": []
+    }
+  ],
+  "receipts": []
+}

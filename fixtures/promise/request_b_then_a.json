@@ -1,0 +1,17 @@
+{
+  "request_id": "R-RESERVE-B-THEN-CANCEL-A",
+  "expected_version": 1,
+  "operations": [
+    {
+      "op": "reserve",
+      "order_id": "B",
+      "sku": "KIT",
+      "date": "2026-01-08",
+      "quantity": 1
+    },
+    {
+      "op": "cancel",
+      "order_id": "A"
+    }
+  ]
+}

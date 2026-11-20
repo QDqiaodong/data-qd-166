@@ -1,0 +1,21 @@
+{
+  "request_id": "R-ROLLBACK",
+  "expected_version": 1,
+  "operations": [
+    {
+      "op": "cancel",
+      "order_id": "A"
+    },
+    {
+      "op": "reserve",
+      "order_id": "B",
+      "sku": "KIT",
+      "date": "2026-01-08",
+      "quantity": 1
+    },
+    {
+      "op": "cancel",
+      "order_id": "Z"
+    }
+  ]
+}

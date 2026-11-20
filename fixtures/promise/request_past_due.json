@@ -1,0 +1,13 @@
+{
+  "request_id": "R-PAST-DUE",
+  "expected_version": 0,
+  "operations": [
+    {
+      "op": "reserve",
+      "order_id": "O-LATE",
+      "sku": "KIT",
+      "date": "2026-01-08",
+      "quantity": 100
+    }
+  ]
+}

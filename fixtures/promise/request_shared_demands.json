@@ -1,0 +1,20 @@
+{
+  "request_id": "R-SHARED-DEMANDS",
+  "expected_version": 0,
+  "operations": [
+    {
+      "op": "reserve",
+      "order_id": "O-P1",
+      "sku": "P1",
+      "date": "2026-02-02",
+      "quantity": 5
+    },
+    {
+      "op": "reserve",
+      "order_id": "O-P2",
+      "sku": "P2",
+      "date": "2026-02-02",
+      "quantity": 2
+    }
+  ]
+}
