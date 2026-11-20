@@ -1,0 +1,12 @@
+{
+  "request_id": "CLEAN-1",
+  "expected_version": 2,
+  "operations": [
+    {
+      "op": "receive",
+      "lot_id": "CLEAN",
+      "sku": "RAW",
+      "quantity": 1
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "request_id": "BLOCKED-MAKE",
+  "expected_version": 3,
+  "operations": [
+    {
+      "op": "make",
+      "lot_id": "K2",
+      "sku": "KIT",
+      "quantity": 1,
+      "inputs": [
+        {
+          "lot_id": "S2",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "op": "close_recall",
+      "recall_id": "X"
+    }
+  ]
+}

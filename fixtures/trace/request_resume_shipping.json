@@ -1,0 +1,31 @@
+{
+  "request_id": "RESUME-1",
+  "expected_version": 5,
+  "operations": [
+    {
+      "op": "make",
+      "lot_id": "K3",
+      "sku": "KIT",
+      "quantity": 1,
+      "inputs": [
+        {
+          "lot_id": "S2",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "op": "ship",
+      "shipment_id": "OUT2",
+      "customer_id": "C2",
+      "sku": "KIT",
+      "quantity": 1,
+      "allocations": [
+        {
+          "lot_id": "K3",
+          "quantity": 1
+        }
+      ]
+    }
+  ]
+}

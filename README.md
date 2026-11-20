@@ -104,3 +104,45 @@ $MP snapshot --db "$DB"
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
 
+## 实物批次谱系与召回出库闸（material-trace）
+
+净算与承诺簿给出的是建议/承诺；本模块另建一份独立的本地 SQLite 实物账，记录真实收货、实际完工与发货。召回沿**实际用料批次**传播（不是按 SKU 封禁，也不只看剩余库存），既阻断受影响成品继续投料/出库，也列出此前已发给哪些客户。它不读取、也不回写既有计划器的 `inventory_lots` 与承诺簿，绝不从净算建议自动造实物。完整字段与口径见 [数据契约](docs/contract.md) 的 v5 章节。
+
+```sh
+export PYTHONPATH=src
+MT="python3 -m material_plan.traceability_cli"
+DB=run/trace.db
+mkdir -p run
+
+# 1) 初始化固定配方主数据（路径已存在即拒绝，包括空文件）
+$MT init --db "$DB" --source fixtures/trace/master.json
+
+# 2) 收货 R×6、完工 S1/S2/K、发货 OUT1 给 C1：版本 0 -> 1
+$MT apply --db "$DB" --source fixtures/trace/request_physical_build.json
+
+# 3) 召回原料 R：blocked_by 覆盖 R/S1/S2/K，exposures 列出 X/OUT1/K×1
+$MT apply --db "$DB" --source fixtures/trace/request_recall_x.json
+
+# 4) 独立 RAW 批次 CLEAN 不受影响
+$MT apply --db "$DB" --source fixtures/trace/request_receive_clean.json
+
+# 5) X 有效时用 S2 完工再关闭 X：整批失败，退出 2，版本与余额不变
+$MT apply --db "$DB" --source fixtures/trace/request_blocked_make_then_close.json; echo "rc=$?"
+
+# 6) 另开 Y 指向 S1 再关闭 X：S2 恢复，K 仍受 Y 影响
+$MT apply --db "$DB" --source fixtures/trace/request_recall_y.json
+$MT apply --db "$DB" --source fixtures/trace/request_close_x.json
+
+# 7) 用恢复的 S2 完工 K3 并发货 OUT2 给 C2，版本 5 -> 6
+$MT apply --db "$DB" --source fixtures/trace/request_resume_shipping.json
+
+# 8) 当前快照：保留 closed X 与 active Y；重放步骤 2 只返回原版本 1 的快照
+$MT snapshot --db "$DB"
+$MT apply --db "$DB" --source fixtures/trace/request_physical_build.json
+```
+
+安装后可直接用 `.venv/bin/material-trace`（把 `MT` 换成它即可）。失败一律退出 2、stdout 为空、stderr 有错误；成功 stdout 仅一份 JSON 快照加换行。Python 接口为 `material_plan.traceability.init_db / apply_batch / snapshot`，`db` 接受 `str` 或 `Path`，失败抛 `ValueError` 且不修改调用方对象。同一成功 `request_id` 以完整请求重放返回首次提交快照、不重复扣料；`snapshot` 永远反映当前召回与余额。集成测试：
+
+```sh
+PYTHONPATH=src python3 -m unittest discover -s tests -v
+```

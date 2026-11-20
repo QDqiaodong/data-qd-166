@@ -1,0 +1,10 @@
+{
+  "request_id": "CLOSE-X",
+  "expected_version": 4,
+  "operations": [
+    {
+      "op": "close_recall",
+      "recall_id": "X"
+    }
+  ]
+}

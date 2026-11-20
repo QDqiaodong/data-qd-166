@@ -1,0 +1,61 @@
+{
+  "request_id": "BUILD-1",
+  "expected_version": 0,
+  "operations": [
+    {
+      "op": "receive",
+      "lot_id": "R",
+      "sku": "RAW",
+      "quantity": 6
+    },
+    {
+      "op": "make",
+      "lot_id": "S1",
+      "sku": "SUB",
+      "quantity": 2,
+      "inputs": [
+        {
+          "lot_id": "R",
+          "quantity": 4
+        }
+      ]
+    },
+    {
+      "op": "make",
+      "lot_id": "S2",
+      "sku": "SUB",
+      "quantity": 1,
+      "inputs": [
+        {
+          "lot_id": "R",
+          "quantity": 2
+        }
+      ]
+    },
+    {
+      "op": "make",
+      "lot_id": "K",
+      "sku": "KIT",
+      "quantity": 1,
+      "inputs": [
+        {
+          "lot_id": "S1",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "op": "ship",
+      "shipment_id": "OUT1",
+      "customer_id": "C1",
+      "sku": "KIT",
+      "quantity": 1,
+      "allocations": [
+        {
+          "lot_id": "K",
+          "quantity": 1
+        }
+      ]
+    }
+  ]
+}

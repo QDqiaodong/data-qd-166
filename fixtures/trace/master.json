@@ -1,0 +1,26 @@
+{
+  "items": [
+    {
+      "sku": "RAW",
+      "components": []
+    },
+    {
+      "sku": "SUB",
+      "components": [
+        {
+          "sku": "RAW",
+          "quantity": 2
+        }
+      ]
+    },
+    {
+      "sku": "KIT",
+      "components": [
+        {
+          "sku": "SUB",
+          "quantity": 1
+        }
+      ]
+    }
+  ]
+}

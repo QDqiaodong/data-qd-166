@@ -1,0 +1,11 @@
+{
+  "request_id": "RECALL-Y",
+  "expected_version": 3,
+  "operations": [
+    {
+      "op": "recall",
+      "recall_id": "Y",
+      "lot_id": "S1"
+    }
+  ]
+}
